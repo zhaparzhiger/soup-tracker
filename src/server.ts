@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import Fastify, { type FastifyBaseLogger } from 'fastify';
+import Fastify, { type FastifyBaseLogger, type FastifyReply } from 'fastify';
 import { destination, multistream, pino, type StreamEntry } from 'pino';
 import { config } from './config.js';
 import { isTransient, migrate, onPoolError, pool } from './db.js';
@@ -9,17 +9,25 @@ import { registerRoutes } from './routes.js';
 
 const sinks: StreamEntry[] = [{ stream: process.stdout }];
 if (config.logFile) sinks.push({ stream: destination({ dest: config.logFile, mkdir: true, sync: false }) });
-// Request logs carry method, path, status and time. Never headers (so never an API key) and never bodies.
 const logger: FastifyBaseLogger = pino(
   { level: config.logLevel, redact: { paths: ['req.headers.authorization', 'req.headers.cookie'], remove: true } },
   multistream(sinks),
 );
 
+// Nothing here may be stored by a browser or a shared cache: responses depend on the API key.
+const BASE_HEADERS = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer' };
+
 const app = Fastify({
   loggerInstance: logger,
   bodyLimit: config.maxBodyBytes,
   exposeHeadRoutes: false, // a HEAD on the SSE route must not open a stream
+  disableRequestLogging: true, // replaced by the single line below
   genReqId: () => randomUUID(),
+  // A malformed or over-long URL never reaches a route or a hook, and Fastify's default answer
+  // echoes the whole path back with its own error code. Answer like any unknown path instead.
+  frameworkErrors: (_err, _req, reply) => {
+    void (reply as unknown as FastifyReply).code(404).headers(BASE_HEADERS).send({ error: 'not_found' });
+  },
 });
 
 onPoolError((err) => logger.warn({ err }, 'idle database connection failed'));
@@ -41,10 +49,13 @@ for (const [route, file, type] of assets) {
 // ---------- API ----------
 
 app.addHook('onSend', async (_req, reply) => {
-  // Nothing here may be stored by a browser or a shared cache: responses depend on the API key.
-  reply.header('Cache-Control', 'no-store');
-  reply.header('X-Content-Type-Options', 'nosniff');
-  reply.header('Referrer-Policy', 'no-referrer');
+  reply.headers(BASE_HEADERS);
+});
+
+// One line per request: method, path, status, time. Deliberately not logged: headers (the API
+// key), bodies (metric data) and the query string (clients do put secrets in URLs by mistake).
+app.addHook('onResponse', async (req, reply) => {
+  req.log.info({ method: req.method, path: req.url.split('?', 1)[0]!.slice(0, 200), status: reply.statusCode, ms: Math.round(reply.elapsedTime) }, 'request');
 });
 
 app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: 'not_found' }));

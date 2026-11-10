@@ -1,0 +1,23 @@
+2360:      throw er; // Unhandled 'error' event
+2361-      ^
+2362-
+2363-Error: Connection terminated unexpectedly
+2364-    at Connection.<anonymous> (/app/node_modules/pg/lib/client.js:204:73)
+2365-    at Object.onceWrapper (node:events:633:28)
+2366-    at Connection.emit (node:events:519:28)
+2367-    at Socket.<anonymous> (/app/node_modules/pg/lib/connection.js:64:12)
+2368-    at Socket.emit (node:events:519:28)
+2369-    at TCP.<anonymous> (node:net:347:12)
+2370-Emitted 'error' event on Client instance at:
+2371-    at Client._handleErrorEvent (/app/node_modules/pg/lib/client.js:422:10)
+2372-    at Connection.<anonymous> (/app/node_modules/pg/lib/client.js:222:16)
+2373-    at Object.onceWrapper (node:events:633:28)
+2374-    at Connection.emit (node:events:519:28)
+2375-    at Socket.<anonymous> (/app/node_modules/pg/lib/connection.js:64:12)
+2376-    at Socket.emit (node:events:519:28)
+2377-    at TCP.<anonymous> (node:net:347:12)
+2378-
+2379-Node.js v22.23.4
+2380-(node:1) [FSTDEP023] FastifyDeprecation: disableRequestLogging option is deprecated. Use the logController option with disableRequestLogging or isLogDisabled override instead. The disableRequestLogging top-level option will be removed in `fastify@6`.
+2381-(Use `node --trace-warnings ...` to show where the warning was created)
+2382-{"level":30,"time":1794316338111,"pid":1,"hostname":"c554b087b292","msg":"Server listening at http://127.0.0.1:8080"}

@@ -92,7 +92,6 @@ export class RunStream implements hub.StreamHandle {
       };
       const onDrain = () => done(true);
       const timeout = setTimeout(() => {
-        this.log.info({ run: this.runId, cursor: this.cursor }, 'stream closed: client did not drain');
         this.close('slow'); // close() calls cancelDrainWait → done(false)
       }, config.drainTimeoutMs);
       this.cancelDrainWait = () => done(false);
@@ -122,6 +121,7 @@ export class RunStream implements hub.StreamHandle {
     this.closed = true;
     if (this.timer) clearInterval(this.timer);
     hub.unregister(this, reason);
+    this.log.info({ run: this.runId, cursor: this.cursor, reason }, 'stream closed');
     this.cancelDrainWait?.();
     if (reason === 'client') return;
     if (reason === 'slow' || reason === 'error') {

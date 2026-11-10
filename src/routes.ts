@@ -86,6 +86,7 @@ export function registerRoutes(app: FastifyInstance): void {
     const mem = process.memoryUsage();
     return {
       uptime_s: Math.round(process.uptime()),
+      cpu_us: process.cpuUsage().user + process.cpuUsage().system,
       memory: { rss: mem.rss, heap_used: mem.heapUsed, external: mem.external },
       db_pool: { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount },
       streams: hub.stats(),
@@ -166,6 +167,7 @@ export function registerRoutes(app: FastifyInstance): void {
       reply.hijack(); // from here the socket is ours
       reply.raw.writeHead(200, SSE_HEADERS);
       req.raw.socket.setNoDelay(true);
+      req.log.info({ run: run.id, after }, 'stream opened');
       stream.start();
     });
   });

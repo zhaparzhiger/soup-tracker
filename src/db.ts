@@ -30,6 +30,13 @@ export function onPoolError(handler: (err: Error) => void): void {
 export async function tx<T>(fn: (client: pg.PoolClient) => Promise<T>): Promise<T> {
   const client = await pool.connect();
   let broken: Error | undefined;
+  // The pool only listens for errors on idle clients. If the connection of a checked-out client
+  // dies, pg emits 'error' on it, and with no listener Node kills the whole process. (This
+  // happened: test-output/run-1-api-crash.log.) The failed query still rejects below.
+  const onError = (err: Error) => {
+    broken = err;
+  };
+  client.on('error', onError);
   try {
     await client.query('BEGIN');
     const out = await fn(client);
@@ -43,6 +50,7 @@ export async function tx<T>(fn: (client: pg.PoolClient) => Promise<T>): Promise<
     }
     throw err;
   } finally {
+    client.removeListener('error', onError);
     client.release(broken);
   }
 }
@@ -61,7 +69,9 @@ export async function migrate(): Promise<void> {
 
 /** Errors where "try again in a moment" is the right answer for the client. */
 export function isTransient(err: unknown): boolean {
-  const code = (err as { code?: unknown })?.code;
+  const { code, message } = (err ?? {}) as { code?: unknown; message?: unknown };
+  // node-pg reports a dropped connection without a code.
+  if (typeof message === 'string' && /Connection terminated|connection error|timeout exceeded when trying to connect/i.test(message)) return true;
   if (typeof code !== 'string') return false;
   return (
     code.startsWith('08') || // connection exception

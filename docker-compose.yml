@@ -52,6 +52,7 @@ services:
     environment:
       API_URL: http://api:8080
       PROXY_URL: http://toxiproxy:8666
+      INGEST_PROXY_URL: http://toxiproxy:8667
       TOXIPROXY_URL: http://toxiproxy:8474
       DATABASE_URL: postgres://tracker:tracker@db:5432/tracker
       ADMIN_TOKEN: ${ADMIN_TOKEN:-dev-admin-token}

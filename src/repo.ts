@@ -141,7 +141,9 @@ export async function ingest(projectId: string, runId: string, points: Point[]):
   const batch = [...unique.values()];
 
   return tx(async (c) => {
-    const run = await c.query('SELECT last_seq FROM runs WHERE id = $1 AND project_id = $2 FOR UPDATE', [runId, projectId]);
+    // NO KEY UPDATE, not UPDATE: it still excludes other writers of this run, but does not
+    // collide with the KEY SHARE lock that every insert into points takes via the foreign key.
+    const run = await c.query('SELECT last_seq FROM runs WHERE id = $1 AND project_id = $2 FOR NO KEY UPDATE', [runId, projectId]);
     if (run.rowCount !== 1) return null;
     let lastSeq: number = run.rows[0].last_seq;
 

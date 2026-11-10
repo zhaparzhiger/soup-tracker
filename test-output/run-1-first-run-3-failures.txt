@@ -1,0 +1,171 @@
+# raw output of: npx playwright test
+# started 2026-11-10T13:11:03Z · node v22.23.4 · playwright 1.65.0
+
+target http://api:8080 · proxies ready
+
+Running 23 tests using 1 worker
+
+      │ seed 20261110 · 1200 unique points in 53 batches + 120 late
+      │ sender: 80 requests, 3 failed and retried, 6 abandoned mid-flight, 16 batches sent twice on purpose
+      │ server acks: accepted 1154, duplicates 569, conflicts 1 (1 forced)
+      │ browser outage: page stayed at seq 466 while 255 points were stored, then caught up
+      │ page: reconnects 3, stalls 1, gaps 0 · reconnects 3 · replayed points skipped 0 · gaps 0 · stalls 1 · last data 1:11:21 PM
+      │ "always" check: 135 samples, max lag 343 points, violations 0
+      │ views: sent 1200 · database 1200 · API 1200 · page 1200 rows
+  ✓   1 specs/01-consistency.e2e.spec.ts:17:1 › page == API == database == what was sent, through disorder, duplicates, late points and dropped connections (15.5s)
+  ✓   2 specs/02-isolation.spec.ts:48:1 › read, write and subscribe: B's run answers A exactly like a run that does not exist (42ms)
+  ✓   3 specs/02-isolation.spec.ts:68:1 › the run list contains only the caller's runs (13ms)
+      │ A's stream: 25 points, 923 bytes, none of B's 350 points
+  ✓   4 specs/02-isolation.spec.ts:78:1 › live stream: A's stream never carries B's points, also while both are written at once (2.6s)
+  ✘   5 specs/02-isolation.spec.ts:99:1 › ids cannot be guessed or probed: every malformed or near-miss id gives the same 404 (42ms)
+  ✓   6 specs/02-isolation.spec.ts:120:1 › missing, malformed, unknown and revoked keys are all the same 401 (107ms)
+  ✓   7 specs/02-isolation.spec.ts:141:1 › cache: nothing is cacheable, there are no validators, and one connection serves two keys correctly (184ms)
+      │ invalid JSON       -> 400 {"error":"bad_request"}
+      │ wrong shape        -> 400 {"error":"bad_request","detail":"body must be {\"points\": [...]}"}
+      │ bad point          -> 400 {"error":"bad_request","detail":"points[0].step must be an integer 0..2^53-1"}
+      │ too large          -> 413 {"error":"payload_too_large"}
+      │ wrong content type -> 400 {"error":"bad_request","detail":"body must be {\"points\": [...]}"}
+      │ bad cursor         -> 400 {"error":"bad_request","detail":"after must be a seq, limit 1..5000"}
+      │ unknown route      -> 404 {"error":"not_found"}
+      │ lock timeout        -> 503 {"error":"unavailable","request_id":"45933d92-08c7-4370-82b8-867ef0bf0b3e"} after 5010 ms (failed, not hung)
+  ✓   8 specs/02-isolation.spec.ts:165:1 › error messages carry no data: bad input, oversized body, lock timeout (503) (5.1s)
+  ✓   9 specs/02-isolation.spec.ts:204:1 › the per-project stream limit is per project: A at its limit does not block B (571ms)
+      │ other project's run: median 2.019 ms, p90 2.797 ms
+      │ nonexistent run:     median 2.048 ms, p90 2.667 ms
+      │ difference of medians: -29 µs over 400 pairs — below what a remote attacker can use; ids are 122-bit random anyway
+  ✓  10 specs/02-isolation.spec.ts:230:1 › timing: "not yours" and "does not exist" take the same time (weak evidence, reported) (1.8s)
+      │ 2898 log lines scanned: 0 API keys, 0 "Bearer", 0 metric names or values
+      │ run ids do appear in request paths (403 lines mention B's run id) — acceptable only because an id alone opens nothing
+  ✓  11 specs/02-isolation.spec.ts:253:1 › server logs contain no API keys and no metric values (1.5s)
+      │ 40 forced disconnects, 41 connections, 6000 points received, dups 0, gaps 0
+  ✓  12 specs/03-silent-failures.spec.ts:12:3 › events lost on reconnect › a reader that is cut off 40 times at random moments receives every seq exactly once (5.7s)
+      │ 16 writers x 25 batches: 4000 points, seq 1..4000 contiguous, 3 live readers each got all of them in order
+  ✓  13 specs/03-silent-failures.spec.ts:50:3 › events lost on reconnect › 16 concurrent writers to one run: seq stays gapless and live readers never skip a late commit (2.6s)
+      │ delivered 2425 ms after commit with no wake-up (poll interval 2 s ± 25%)
+  ✓  14 specs/03-silent-failures.spec.ts:77:3 › events lost on reconnect › points committed without a wake-up (another instance, lost hint) still arrive via the poll (2.5s)
+      │ 8 identical concurrent batches of 200: accepted 200, duplicates 1400; reader got 250 points, none twice
+  ✓  15 specs/03-silent-failures.spec.ts:107:3 › duplicates › the same batch 8 times at once, then re-batched: stored once, delivered once, counted (90ms)
+  ✓  16 specs/03-silent-failures.spec.ts:134:3 › duplicates › a different value for a stored point is rejected and counted, never silently overwritten (30ms)
+      │ reader paused; 43000 points (~6 MB of stream) written; server blocked on the socket after batch 3
+      │ server-side buffer for that stream: max 67 KiB; RSS 100 MB -> max 120 MB
+      │ server closed the stuck stream after the drain timeout (streams_closed_slow +1)
+      │ after resume: 12000 points arrived from the old connection, the rest over 1 reconnect(s); dups 0, gaps 0
+  ✓  17 specs/03-silent-failures.spec.ts:147:3 › queue overflow for a slow client › a reader that stops reading: server memory stays flat, it is cut off, and resumes with no loss (31.0s)
+      │ 5 bad values, 5 bad steps, 1001 points, 1.1 MB body: all rejected, 0 rows stored; the corrected batch stored 100
+  ✓  18 specs/03-silent-failures.spec.ts:202:3 › partial writes › one invalid point rejects the whole batch: nothing of it is stored (60ms)
+  ✘  19 specs/03-silent-failures.spec.ts:229:3 › partial writes › a batch whose database connection is killed between INSERT and COMMIT leaves nothing behind (81ms)
+  ✘  20 specs/03-silent-failures.spec.ts:272:3 › an old API key that keeps working after rotation › after rotation the old key is dead everywhere: REST, new streams and streams already open (23ms)
+      │ key revoked directly in the database: open stream closed after 2219 ms (poll interval 2 s ± 25%)
+  ✓  21 specs/03-silent-failures.spec.ts:306:3 › an old API key that keeps working after rotation › a key revoked behind this process's back (another instance) still loses its open streams within a poll (2.3s)
+  ✓  22 specs/03-silent-failures.spec.ts:323:3 › an old API key that keeps working after rotation › two rotations racing with the same key: exactly one wins (57ms)
+      │ 18 projects, 17 runs, 57820 points in the database
+      │ runs whose head disagrees with their points: 0 · duplicate (run, key, step): 0 · orphan points: 0 · projects with two active keys: 0
+  ✓  23 specs/04-invariants.spec.ts:8:1 › for every run: last_seq == number of stored points, seq is 1..N, no (key, step) twice (97ms)
+
+
+  1) specs/02-isolation.spec.ts:99:1 › ids cannot be guessed or probed: every malformed or near-miss id gives the same 404 
+
+    Error: probe aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 7
+    + Received  + 4
+
+      Object {
+    -   "body": "{\"error\":\"not_found\"}",
+    +   "body": "{\"error\":\"Bad Request\",\"code\":\"FST_ERR_MAX_PARAM_LENGTH\",\"message\":\"'/runs/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa[…4900 more "a" trimmed from this line by hand…]' is exceeding the max param length\",\"statusCode\":414}",
+        "headers": Object {
+    -     "cache-control": "no-store",
+          "connection": "keep-alive",
+    -     "content-length": "21",
+    -     "content-type": "application/json; charset=utf-8",
+    +     "content-length": "5129",
+    +     "content-type": "application/json",
+          "keep-alive": "timeout=72",
+    -     "referrer-policy": "no-referrer",
+    -     "x-content-type-options": "nosniff",
+        },
+    -   "status": 404,
+    +   "status": 414,
+      }
+
+      103 |   for (const probe of probes) {
+      104 |     const res = await call(`/runs/${encodeURIComponent(probe)}`, { key: A.key });
+    > 105 |     expect(fingerprint(res), `probe ${probe.slice(0, 40)}`).toEqual(missing);
+          |                                                             ^
+      106 |   }
+      107 |
+      108 |   // Ids are random UUIDv4: no order, no counter, nothing to increment.
+        at /tests/specs/02-isolation.spec.ts:105:61
+
+    Error Context: ../out/playwright-artifacts/02-isolation-ids-cannot-be-0037b--miss-id-gives-the-same-404/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../out/playwright-artifacts/02-isolation-ids-cannot-be-0037b--miss-id-gives-the-same-404/trace.zip
+    Usage:
+
+        npx playwright show-trace ../out/playwright-artifacts/02-isolation-ids-cannot-be-0037b--miss-id-gives-the-same-404/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) specs/03-silent-failures.spec.ts:229:3 › partial writes › a batch whose database connection is killed between INSERT and COMMIT leaves nothing behind 
+
+    TypeError: fetch failed
+
+       at ../helpers/api.ts:20
+
+      18 | export async function call(path: string, o: CallOptions = {}): Promise<Res> {
+      19 |   const hasBody = o.body !== undefined || o.raw !== undefined;
+    > 20 |   const res = await fetch((o.base ?? API_URL) + path, {
+         |               ^
+      21 |     method: o.method ?? (hasBody ? 'POST' : 'GET'),
+      22 |     headers: {
+      23 |       ...(o.key ? { authorization: `Bearer ${o.key}` } : {}),
+        at call (/tests/helpers/api.ts:20:15)
+        at /tests/specs/03-silent-failures.spec.ts:249:19
+    [cause]: SocketError: other side closed
+
+    Error Context: ../out/playwright-artifacts/03-silent-failures-partial-a0811-OMMIT-leaves-nothing-behind/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../out/playwright-artifacts/03-silent-failures-partial-a0811-OMMIT-leaves-nothing-behind/trace.zip
+    Usage:
+
+        npx playwright show-trace ../out/playwright-artifacts/03-silent-failures-partial-a0811-OMMIT-leaves-nothing-behind/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) specs/03-silent-failures.spec.ts:272:3 › an old API key that keeps working after rotation › after rotation the old key is dead everywhere: REST, new streams and streams already open 
+
+    TypeError: fetch failed
+
+       at ../helpers/api.ts:20
+
+      18 | export async function call(path: string, o: CallOptions = {}): Promise<Res> {
+      19 |   const hasBody = o.body !== undefined || o.raw !== undefined;
+    > 20 |   const res = await fetch((o.base ?? API_URL) + path, {
+         |               ^
+      21 |     method: o.method ?? (hasBody ? 'POST' : 'GET'),
+      22 |     headers: {
+      23 |       ...(o.key ? { authorization: `Bearer ${o.key}` } : {}),
+        at call (/tests/helpers/api.ts:20:15)
+        at createProject (/tests/helpers/api.ts:41:15)
+        at /tests/specs/03-silent-failures.spec.ts:273:15
+    [cause]: Error: connect ECONNREFUSED 192.168.48.3:8080
+
+    Error Context: ../out/playwright-artifacts/03-silent-failures-an-old--d19c6-ms-and-streams-already-open/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../out/playwright-artifacts/03-silent-failures-an-old--d19c6-ms-and-streams-already-open/trace.zip
+    Usage:
+
+        npx playwright show-trace ../out/playwright-artifacts/03-silent-failures-an-old--d19c6-ms-and-streams-already-open/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3 failed
+    specs/02-isolation.spec.ts:99:1 › ids cannot be guessed or probed: every malformed or near-miss id gives the same 404 
+    specs/03-silent-failures.spec.ts:229:3 › partial writes › a batch whose database connection is killed between INSERT and COMMIT leaves nothing behind 
+    specs/03-silent-failures.spec.ts:272:3 › an old API key that keeps working after rotation › after rotation the old key is dead everywhere: REST, new streams and streams already open 
+  20 passed (1.3m)

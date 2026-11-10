@@ -1,0 +1,15 @@
+{
+  "name": "soup-tracker-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "load": "playwright test --config playwright.load.config.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "@types/node": "^22.20.5",
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.1"
+  }
+}
