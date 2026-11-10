@@ -1,0 +1,9 @@
+      │ offered: 50 runs x 10 ev/s = 500 ev/s, as 10-point batches every 1000 ms = 50 req/s, 100 open streams
+      │ done:    30000 points in 60.0 s = 500 ev/s, 3000 requests, 0 failed requests, max 2 in flight
+      │ ingest latency (request -> ack):        p50 6 · p95 9 · p99 11 · max 21 ms
+      │ delivery lag  (sent -> seen by viewer): p50 7 · p95 9 · p99 12 · max 23 ms  over 60000 deliveries
+      │ API process: CPU 21% of one core · RSS peak 108 MB · DB pool waiting peak 0 · stream buffers peak 0 KiB · streams blocked peak 0
+      │ server errors (5xx) during the run: 0 · slow-consumer closes: 0
+      │ verify:  runs with a wrong stored count: 0/50 · viewers with a gap, duplicate or missing point: 0/100
+  ✓  1 load/load.spec.ts:27:1 › 50 runs x 10 events/s for 60 s, 2 live viewer(s) per run (1.0m)
+  1 passed (1.0m)
