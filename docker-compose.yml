@@ -1,0 +1,71 @@
+# App:    docker compose up --build            → http://localhost:8080
+# Tests:  docker compose --profile test run --rm --build tests
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: tracker
+      POSTGRES_PASSWORD: tracker
+      POSTGRES_DB: tracker
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tracker -d tracker"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgres://tracker:tracker@db:5432/tracker
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-dev-admin-token}
+      LOG_FILE: /logs/api.log
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - logs:/logs
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz || exit 1"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  # ---- only for the test suite ----
+
+  # A TCP proxy the tests use to cut, blackhole and slow down connections for real.
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.12.0
+    profiles: ["test"]
+    depends_on:
+      api:
+        condition: service_healthy
+
+  tests:
+    build: ./tests
+    profiles: ["test"]
+    environment:
+      API_URL: http://api:8080
+      PROXY_URL: http://toxiproxy:8666
+      TOXIPROXY_URL: http://toxiproxy:8474
+      DATABASE_URL: postgres://tracker:tracker@db:5432/tracker
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-dev-admin-token}
+      API_LOG: /logs/api.log
+      OUT_DIR: /out
+    volumes:
+      - ./test-output:/out
+      - logs:/logs:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      toxiproxy:
+        condition: service_started
+
+volumes:
+  dbdata:
+  logs:
