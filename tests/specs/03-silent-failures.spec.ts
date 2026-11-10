@@ -232,8 +232,24 @@ test.describe('partial writes', () => {
     await ingest(p.key, run.id, points('m', 0, 10));
     const before = await dbRun(run.id);
     const batch = points('m', 10, 1000);
-    const tuples = async () => Number((await db.query("SELECT n_tup_ins FROM pg_stat_user_tables WHERE relname = 'points'")).rows[0].n_tup_ins);
-    const insertedBefore = await tuples();
+
+    // Is there a row for this step right now, committed or not? An insert of the same (key, step)
+    // has to wait for an uncommitted one, so a lock timeout means "yes, written but not committed".
+    const probe = async (step: number): Promise<'written' | 'absent'> => {
+      const c = await db.connect();
+      try {
+        await c.query('BEGIN');
+        await c.query("SET LOCAL lock_timeout = '300ms'");
+        await c.query("INSERT INTO points (run_id, seq, key, step, value) VALUES ($1, $2, 'm', $3, 0)", [run.id, 2_000_000_000 + step, step]);
+        return 'absent';
+      } catch (err) {
+        if ((err as { code?: string }).code !== '55P03') throw err;
+        return 'written';
+      } finally {
+        await c.query('ROLLBACK');
+        c.release();
+      }
+    };
 
     // An uncommitted row that collides with point #500 of the batch. The API's INSERT writes
     // 500 rows inside its transaction and then has to wait for us.
@@ -245,6 +261,10 @@ test.describe('partial writes', () => {
       const pending = ingest(p.key, run.id, batch);
       const pid = await until('the API transaction to block on our row', async () =>
         (await db.query("SELECT pid FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query LIKE 'INSERT INTO points%' AND pid <> pg_backend_pid()")).rows[0]?.pid, 8000);
+      // The batch is points 10..1009; ours blocks #510. So 10..509 must be written and 511.. not yet.
+      const midFlight = { 10: await probe(10), 509: await probe(509), 511: await probe(511), 1009: await probe(1009) };
+      note(`while blocked, uncommitted rows of the batch: step 10 ${midFlight[10]}, step 509 ${midFlight[509]}, step 511 ${midFlight[511]}, step 1009 ${midFlight[1009]}`);
+      expect(midFlight, 'the transaction is half done: 500 rows written, 500 not').toEqual({ 10: 'written', 509: 'written', 511: 'absent', 1009: 'absent' });
       await db.query('SELECT pg_terminate_backend($1)', [pid]); // the connection dies mid-transaction
       const res = await pending;
       status = res.status;
@@ -256,10 +276,8 @@ test.describe('partial writes', () => {
     }
 
     expect(await dbRun(run.id), 'no row of the killed batch is visible and the head did not move').toEqual(before);
-    await sleep(1200); // table statistics are flushed asynchronously
-    const written = (await tuples()) - insertedBefore;
-    note(`API answered ${status}; rows physically written by the killed transaction: ${written} (+1 ours); visible afterwards: 0`);
-    expect(written, 'the transaction really had written rows before it died').toBeGreaterThanOrEqual(500);
+    expect({ 10: await probe(10), 509: await probe(509) }, 'the half-written rows are gone').toEqual({ 10: 'absent', 509: 'absent' });
+    note(`killed with 500 of 1000 rows written; API answered ${status}; rows of that batch afterwards: 0; head unchanged at seq ${before.last_seq}`);
 
     // The client's retry of the same batch succeeds completely, and the API is healthy.
     expect((await ingest(p.key, run.id, batch)).json).toEqual({ accepted: 1000, duplicates: 0, conflicts: 0, last_seq: 1010 });

@@ -1,0 +1,70 @@
+# raw output of: npx playwright test
+# started 2026-11-10T13:30:10Z · node v22.23.4 · playwright 1.65.0
+
+target http://api:8080 · proxies ready
+
+Running 23 tests using 1 worker
+
+      │ seed 20261110 · 1200 unique points in 53 batches + 120 late
+      │ sender: 85 requests, 12 failed (connection reset or timeout) and were retried, 4 of those retries found the batch already stored
+      │ sender: 7 requests abandoned mid-flight, 12 batches sent twice on purpose
+      │ acks the sender saw: accepted 1041 (the other 159 points were stored by requests whose answer never arrived), duplicates 613, conflicts 1 (1 forced)
+      │ browser outage: page stayed at seq 466 while 255 points were stored, then caught up
+      │ page: reconnects 3, stalls 1, gaps 0 · reconnects 3 · replayed points skipped 0 · gaps 0 · stalls 1 · last data 1:30:27 PM
+      │ "always" check: 131 samples, max lag 389 points, violations 0
+      │ views: sent 1200 · database 1200 · API 1200 · page 1200 rows
+  ✓   1 specs/01-consistency.e2e.spec.ts:17:1 › page == API == database == what was sent, through disorder, duplicates, late points and dropped connections (15.4s)
+  ✓   2 specs/02-isolation.spec.ts:48:1 › read, write and subscribe: B's run answers A exactly like a run that does not exist (47ms)
+  ✓   3 specs/02-isolation.spec.ts:68:1 › the run list contains only the caller's runs (13ms)
+      │ A's stream: 25 points, 923 bytes, none of B's 350 points
+  ✓   4 specs/02-isolation.spec.ts:78:1 › live stream: A's stream never carries B's points, also while both are written at once (2.6s)
+      │ 100 run ids: all UUIDv4, 16/16 distinct first hex digits, not sorted by creation time
+  ✓   5 specs/02-isolation.spec.ts:99:1 › ids cannot be guessed or probed: every malformed or near-miss id gives the same 404 (505ms)
+  ✓   6 specs/02-isolation.spec.ts:124:1 › missing, malformed, unknown and revoked keys are all the same 401 (71ms)
+  ✓   7 specs/02-isolation.spec.ts:145:1 › cache: nothing is cacheable, there are no validators, and one connection serves two keys correctly (157ms)
+      │ invalid JSON       -> 400 {"error":"bad_request"}
+      │ wrong shape        -> 400 {"error":"bad_request","detail":"body must be {\"points\": [...]}"}
+      │ bad point          -> 400 {"error":"bad_request","detail":"points[0].step must be an integer 0..2^53-1"}
+      │ too large          -> 413 {"error":"payload_too_large"}
+      │ wrong content type -> 400 {"error":"bad_request","detail":"body must be {\"points\": [...]}"}
+      │ bad cursor         -> 400 {"error":"bad_request","detail":"after must be a seq, limit 1..5000"}
+      │ unknown route      -> 404 {"error":"not_found"}
+      │ lock timeout        -> 503 {"error":"unavailable","request_id":"c3da9758-01e7-466e-9f70-3f79af9b4c62"} after 5008 ms (failed, not hung)
+  ✓   8 specs/02-isolation.spec.ts:169:1 › error messages carry no data: bad input, oversized body, lock timeout (503) (5.0s)
+  ✓   9 specs/02-isolation.spec.ts:208:1 › the per-project stream limit is per project: A at its limit does not block B (613ms)
+      │ other project's run: median 2.035 ms, p90 3.142 ms
+      │ nonexistent run:     median 1.982 ms, p90 2.952 ms
+      │ difference of medians: 54 µs over 400 pairs — below what a remote attacker can use; ids are 122-bit random anyway
+  ✓  10 specs/02-isolation.spec.ts:234:1 › timing: "not yours" and "does not exist" take the same time (weak evidence, reported) (1.8s)
+      │ 3881 log lines scanned: 0 API keys, 0 "Bearer", 0 metric names or values
+      │ run ids do appear in request paths (417 lines mention B's run id) — acceptable only because an id alone opens nothing
+  ✓  11 specs/02-isolation.spec.ts:257:1 › server logs contain no API keys and no metric values (1.5s)
+      │ 40 forced disconnects, 41 connections, 6000 points received, dups 0, gaps 0
+  ✓  12 specs/03-silent-failures.spec.ts:12:3 › events lost on reconnect › a reader that is cut off 40 times at random moments receives every seq exactly once (5.7s)
+      │ 16 writers x 25 batches: 4000 points, seq 1..4000 contiguous, 3 live readers each got all of them in order
+  ✓  13 specs/03-silent-failures.spec.ts:50:3 › events lost on reconnect › 16 concurrent writers to one run: seq stays gapless and live readers never skip a late commit (2.3s)
+      │ delivered 1666 ms after commit with no wake-up (poll interval 2 s ± 25%)
+  ✓  14 specs/03-silent-failures.spec.ts:77:3 › events lost on reconnect › points committed without a wake-up (another instance, lost hint) still arrive via the poll (1.7s)
+      │ 8 identical concurrent batches of 200: accepted 200, duplicates 1400; reader got 250 points, none twice
+  ✓  15 specs/03-silent-failures.spec.ts:107:3 › duplicates › the same batch 8 times at once, then re-batched: stored once, delivered once, counted (89ms)
+  ✓  16 specs/03-silent-failures.spec.ts:134:3 › duplicates › a different value for a stored point is rejected and counted, never silently overwritten (26ms)
+      │ reader paused; 42000 points (~6 MB of stream) written; server blocked on the socket after batch 2
+      │ server-side buffer for that stream: max 67 KiB; RSS 117 MB -> max 119 MB
+      │ server closed the stuck stream after the drain timeout (streams_closed_slow +1)
+      │ after resume: 10500 points arrived from the old connection, the rest over 1 reconnect(s); dups 0, gaps 0
+  ✓  17 specs/03-silent-failures.spec.ts:147:3 › queue overflow for a slow client › a reader that stops reading: server memory stays flat, it is cut off, and resumes with no loss (30.7s)
+      │ 5 bad values, 5 bad steps, 1001 points, 1.1 MB body: all rejected, 0 rows stored; the corrected batch stored 100
+  ✓  18 specs/03-silent-failures.spec.ts:202:3 › partial writes › one invalid point rejects the whole batch: nothing of it is stored (85ms)
+      │ while blocked, uncommitted rows of the batch: step 10 written, step 509 written, step 511 absent, step 1009 absent
+      │ killed with 500 of 1000 rows written; API answered 503; rows of that batch afterwards: 0; head unchanged at seq 10
+  ✓  19 specs/03-silent-failures.spec.ts:229:3 › partial writes › a batch whose database connection is killed between INSERT and COMMIT leaves nothing behind (709ms)
+      │ rotation took 6 ms; old key: 401 on REST at once; open stream closed 14 ms after the rotation response
+  ✓  20 specs/03-silent-failures.spec.ts:290:3 › an old API key that keeps working after rotation › after rotation the old key is dead everywhere: REST, new streams and streams already open (365ms)
+      │ key revoked directly in the database: open stream closed after 2116 ms (poll interval 2 s ± 25%)
+  ✓  21 specs/03-silent-failures.spec.ts:324:3 › an old API key that keeps working after rotation › a key revoked behind this process's back (another instance) still loses its open streams within a poll (2.1s)
+  ✓  22 specs/03-silent-failures.spec.ts:341:3 › an old API key that keeps working after rotation › two rotations racing with the same key: exactly one wins (26ms)
+      │ 30 projects, 26 runs, 119904 points in the database
+      │ runs whose head disagrees with their points: 0 · duplicate (run, key, step): 0 · orphan points: 0 · projects with two active keys: 0
+  ✓  23 specs/04-invariants.spec.ts:8:1 › for every run: last_seq == number of stored points, seq is 1..N, no (key, step) twice (177ms)
+
+  23 passed (1.2m)

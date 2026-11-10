@@ -1,0 +1,54 @@
+==================================================================
+MUTANT: reconnect resumes from 'now' instead of from the client's cursor
+  change: src/routes.ts  s/new RunStream\(req\.auth, run\.id, after,/new RunStream(req.auth, run.id, after > 0 ? run.last_seq : 0,/
+  ✘  1 specs/01-consistency.e2e.spec.ts:17:1 › page == API == database == what was sent, through disorder, duplicates, late points and dropped connections (32.1s)
+  ✘  2 specs/03-silent-failures.spec.ts:12:3 › events lost on reconnect › a reader that is cut off 40 times at random moments receives every seq exactly once (5.7s)
+    Error: timed out after 30000 ms waiting for: page to catch up after the outage
+    Error: a seq was skipped
+    Expected: 0
+    Received: 8
+  2 failed
+==================================================================
+MUTANT: run lookup forgets the project filter
+  change: src/repo.ts  s/FROM runs WHERE id = \$1 AND project_id = \$2`, \[runId, projectId\]/FROM runs WHERE id = \$1 AND \$2::uuid IS NOT NULL`, [runId, projectId]/
+  ✘  1 specs/02-isolation.spec.ts:48:1 › read, write and subscribe: B's run answers A exactly like a run that does not exist (33ms)
+  ✓  2 specs/02-isolation.spec.ts:78:1 › live stream: A's stream never carries B's points, also while both are written at once (2.6s)
+    Error: GET /runs/:id
+    Expected: 404
+    Received: 200
+  1 failed
+  1 passed (4.4s)
+==================================================================
+MUTANT: stream ignores backpressure (keeps writing to a full socket)
+  change: src/stream.ts  s/if \(!flushed && !\(await this\.waitForDrain\(\)\)\) return;//
+  ✘  1 specs/03-silent-failures.spec.ts:147:3 › queue overflow for a slow client › a reader that stops reading: server memory stays flat, it is cut off, and resumes with no loss (53.5s)
+    Error: backpressure engaged (the stream is waiting for the socket to drain)
+    Expected: > 0
+    Received:   0
+  1 failed
+==================================================================
+MUTANT: ingest does not lock the run (writers race for seq)
+  change: src/repo.ts  s/ FOR NO KEY UPDATE'/'/
+  ✘  1 specs/03-silent-failures.spec.ts:50:3 › events lost on reconnect › 16 concurrent writers to one run: seq stays gapless and live readers never skip a late commit (141ms)
+  ✘  2 specs/03-silent-failures.spec.ts:107:3 › duplicates › the same batch 8 times at once, then re-batched: stored once, delivered once, counted (86ms)
+    Error: expect(received).toBe(expected) // Object.is equality
+    Expected: 200
+    Received: 500
+    Error: expect(received).toEqual(expected) // deep equality
+    - Expected  - 7
+    + Received  + 7
+  2 failed
+==================================================================
+MUTANT: auth accepts revoked keys
+  change: src/repo.ts  s/WHERE key_hash = \$1 AND revoked_at IS NULL/WHERE key_hash = \$1/
+  ✘  1 specs/02-isolation.spec.ts:124:1 › missing, malformed, unknown and revoked keys are all the same 401 (90ms)
+  ✘  2 specs/03-silent-failures.spec.ts:272:3 › an old API key that keeps working after rotation › after rotation the old key is dead everywhere: REST, new streams and streams already open (76ms
+    Error: key "sk_NylwDHXj-…" on /runs
+    - Expected  - 4
+    + Received  + 3
+    Error: expect(received).toBe(expected) // Object.is equality
+    Expected: 401
+    Received: 200
+  2 failed
+==================================================================
+restoring the real server
