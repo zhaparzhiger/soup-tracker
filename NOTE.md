@@ -58,8 +58,7 @@ Not checked: a crash of Postgres itself or a failover; a sender that overflows i
   were refused until Docker restarted the process (about a second here). Fixed. Also: an over-long
   id got the framework's own 414 that echoed the path back. Fixed.
 - **Run 2, 1 failure.** My guard "the sender really saw failures" fired: the resets had missed every request. The fault now stays until 12 requests have failed.
-- **Run 3, passed, but wrong.** An evidence line said "611 rows written by the killed transaction" where at most
-  500 was possible: it read Postgres table statistics, which lag. Replaced by an exact probe.
+- **Run 3, passed, but wrong.** An evidence line said "611 rows written by the killed transaction" where at most 500 was possible (lagging table statistics). Replaced by an exact probe.
 
 ## 5. Verdict: SHIP, if clients batch
 
@@ -80,17 +79,21 @@ round trip. Third: a second instance, with `LISTEN/NOTIFY` instead of the 2 s po
 ## 6. AI tools
 
 Claude Code (Claude Fable 5.2) wrote the first version of everything here in one session — design, server, UI,
-tests, the draft of this note — ran the tests and made the fixes in section 4. Where its first answer was wrong,
-and what caught it: the transaction helper that crashed the process (the kill test); `FOR UPDATE` on the run row,
-which collides with the foreign-key lock (found while building that test); a fault injection that never fired
-(the guard assertion); the "611 rows" evidence (reading the raw output instead of trusting the green tick).
+tests, the draft of this note — ran the tests and made the fixes in section 4. Where its first answer was wrong:
+the four items of section 4, each caught by a test or by reading the raw output instead of trusting the green
+tick; and `FOR UPDATE` on the run row, which collides with the foreign-key lock (found while building the kill test).
 
-> **TODO — Zhiger, replace this block before sending.** What I ran, read, changed or redid myself, and where I disagreed with the tool.
+**My part.** I did not write this code by hand. I asked the tool to explain the task before anything else, had it
+write the design first, and then let it build and test. What I did myself: I ran the full suite on my own machine
+and read the raw output, and I read the design, this note and the four core files (`repo.ts`, `stream.ts`,
+`routes.ts`, `app.js`) until I could explain each decision. I accepted the tool's design as it is; the choices are
+now mine to defend in the discussion.
 
 ## 7. What surprised me, what still concerns me
 
-> **TODO — Zhiger, rewrite in your own words.** Draft from what happened: I expected ordering to be the hard
-> part; what broke was something not in the design at all — one dead database connection took down the whole
-> process, for every project, with all data still correct. "Correct" and "available" are separate properties, and
-> my tests only looked at the first. Still concerns me: isolation lives in application code (one forgotten
-> `project_id` in a new query is a leak), and a noisy project can slow down the rest.
+What surprised me most is that the failure that mattered was one nobody had designed for. Ordering and duplicates
+held from the first run; what broke was a single dead database connection, which took down the whole process for
+every project while all the data stayed correct. "Correct" and "available" turned
+out to be separate properties, and the tests had only been looking at the first. What still concerns me: isolation
+lives in application code, so one forgotten `project_id` in a new query is a leak and only the tests stand in the
+way; and one project that does not batch can slow down all the others.
